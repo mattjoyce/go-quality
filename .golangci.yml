@@ -1,0 +1,70 @@
+version: "2"
+
+# Canonical Go quality gate config.
+# Consumed locally via check.sh and in CI via the reusable workflow.
+# Encodes the mechanical subset of "Agent Coding Standards - GoLang".
+
+run:
+  timeout: 5m
+  tests: true
+
+linters:
+  default: standard # govet, errcheck, staticcheck, ineffassign, unused, govet
+  enable:
+    - errorlint      # errors compared/wrapped without errors.Is/As/%w
+    - funlen         # functions over the length budget
+    - revive         # exported doc comments, stutter, context-as-argument
+    - forbidigo      # banned calls: log.Fatal, panic, fmt.Print* outside main
+    - gosec          # security rules (replaces standalone gosec run)
+    - nolintlint     # every nolint needs a reason and a linter name
+    - interfacebloat # keep interfaces small
+    - gocritic       # misc correctness/style checks
+
+  settings:
+    funlen:
+      lines: 60
+      statements: 50
+      ignore-comments: true
+    forbidigo:
+      forbid:
+        - pattern: ^log\.Fatal.*$
+          msg: log.Fatal only in package main startup; return errors instead
+        - pattern: ^panic$
+          msg: panic only for unrecoverable startup; return errors instead
+        - pattern: ^fmt\.Print(|f|ln)$
+          msg: use log/slog (or return output); fmt.Print* only in main
+      analyze-types: true
+    revive:
+      rules:
+        - name: exported
+          arguments: ["checkPrivateReceivers"]
+        - name: context-as-argument
+        - name: error-return
+        - name: error-naming
+        - name: increment-decrement
+        - name: indent-error-flow
+        - name: package-comments
+          disabled: true
+    nolintlint:
+      require-explanation: true
+      require-specific: true
+    interfacebloat:
+      max: 5
+    gosec:
+      severity: medium
+
+  exclusions:
+    rules:
+      # main packages own process lifecycle: log.Fatal/panic/fmt.Print allowed
+      - path: (^|/)main\.go$
+        linters: [forbidigo]
+      - path: (^|/)cmd/
+        linters: [forbidigo]
+      # tests may be long and use fmt for t.Log-adjacent output
+      - path: _test\.go$
+        linters: [funlen, forbidigo, gosec]
+
+formatters:
+  enable:
+    - gofmt
+    - goimports

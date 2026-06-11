@@ -1,0 +1,54 @@
+# Reusable Go quality gate.
+#
+# Consume from any Go repo:
+#   jobs:
+#     quality:
+#       uses: mattjoyce/go-quality/.github/workflows/go-check.yml@v1
+#
+# Branch-protect on this job and the gate is mandatory, not advisory.
+
+name: go-quality
+
+on:
+  workflow_call:
+    inputs:
+      module-dir:
+        description: "Directory of the Go module to check"
+        type: string
+        default: "."
+      go-version:
+        description: "Go toolchain (default: read from go.mod)"
+        type: string
+        default: ""
+
+jobs:
+  gate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out calling repository
+        uses: actions/checkout@v4
+
+      - name: Check out go-quality (canonical config + runner)
+        uses: actions/checkout@v4
+        with:
+          repository: mattjoyce/go-quality
+          path: .go-quality
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          # go-version wins over go-version-file when both are set
+          go-version: ${{ inputs.go-version }}
+          go-version-file: ${{ format('{0}/go.mod', inputs.module-dir) }}
+
+      - name: Install gate tools (pinned)
+        run: |
+          go install golang.org/x/tools/cmd/goimports@v0.44.0
+          go install golang.org/x/vuln/cmd/govulncheck@v1.3.0
+          curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/HEAD/install.sh \
+            | sh -s -- -b "$(go env GOPATH)/bin" v2.11.4
+
+      - name: Run quality gate
+        env:
+          MODULE_DIR: ${{ inputs.module-dir }}
+        run: bash .go-quality/check.sh "$MODULE_DIR"

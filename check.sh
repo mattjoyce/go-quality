@@ -18,14 +18,16 @@ PATH="$PATH:$(go env GOPATH)/bin"
 declare -a RESULTS=()
 FAILED=0
 
+# Each step's time goes in the summary, so a slow gate says which step to fix.
 run_step() {
   local name="$1"; shift
+  local start=$SECONDS
   echo ""
   echo "── ${name} ──────────────────────────────"
   if "$@"; then
-    RESULTS+=("PASS  ${name}")
+    RESULTS+=("PASS  ${name} ($((SECONDS - start))s)")
   else
-    RESULTS+=("FAIL  ${name}")
+    RESULTS+=("FAIL  ${name} ($((SECONDS - start))s)")
     FAILED=1
   fi
 }
